@@ -1,0 +1,9 @@
+# Project.toml and Manifest.toml are deliberately NOT ignored: commit both.
+
+# Python environment created by CondaPkg/PythonCall, if you use them
+.CondaPkg/
+
+# Julia coverage and allocation-tracking output
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
