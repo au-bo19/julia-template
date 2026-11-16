@@ -30,10 +30,6 @@ cd my-project
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-In this document, "the setup script" is `setup.sh` on Linux and macOS. On
-Windows, it is `setup.ps1`. Run the setup script with the applicable command
-from the quick start.
-
 The setup script does these four tasks:
 
 1. It disconnects the clone from the template repository. Thus you cannot
@@ -44,11 +40,7 @@ The setup script does these four tasks:
    is necessary for some packages that you add from a git URL.
 3. It installs the Julia extension for VS Code.
 4. It runs `setup.jl`. This file makes the project environment and precompiles
-   the packages. The packages are Arrow, BenchmarkTools, Chain, DataFrames, and
-   Dates.
-
-You can run the setup script again at any time. It is safe on a new computer and
-on a computer that you used before.
+   the packages. The packages are Arrow, BenchmarkTools, Chain, DataFrames, Dates, and DBInterface.
 
 If the script installed juliaup, open a new terminal. Then the `julia` command
 is available.
@@ -89,14 +81,9 @@ Then run the setup script. On a new computer, the script does these steps:
 A different person who starts to use the project does the same procedure. The
 operating system of that person can be different from your operating system.
 
-A new computer gets only the data that you pushed. Before you stop the use of a
-computer, do these steps:
-
-1. Run `git status`. Make sure that you committed and pushed all your work.
-2. Make a copy of the files that git ignores (for example, data files). These
-   files are not in the repository.
-3. Find the packages that you added without `--project=.`. Add them to the
-   project. These packages are not in the repository.
+A new computer gets only the packages that the project records. 
+If you added packages without --project=., add them to the project. 
+Then commit Project.toml and Manifest.toml
 
 ## How to start Julia in the project
 
@@ -110,7 +97,7 @@ julia --project=. my_script.jl    # run a script
 In VS Code, open the project folder. The Julia extension finds the project
 automatically. The status bar shows `Julia env: my-project`.
 
-If you do not use `--project=.`, Julia uses an environment for the full
+If you do not use `--project=.`, Julia uses the default environment on the
 computer. This environment is in the `.julia/environments` folder of your home
 folder. The project does not record the packages that you add there. Thus these
 packages are not available on a new computer or to other persons.
