@@ -25,7 +25,7 @@ Set-Location -Path $PSScriptRoot
 # The name of the template repository. If the `origin` URL of a clone has this
 # name at its end, the script removes `origin`. Thus a new project cannot push
 # to the template. Use the same value in setup.sh.
-$TemplateRepoName = 'julia-project-template'
+$TemplateRepoName = 'julia-template'
 # ------------------------------------------------------------------------------
 
 function Step([string]$Message) { Write-Host "`n==> $Message" }

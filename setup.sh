@@ -23,7 +23,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 # The name of the template repository. If the `origin` URL of a clone has this
 # name at its end, the script removes `origin`. Thus a new project cannot push
 # to the template. Use the same value in setup.ps1.
-TEMPLATE_REPO_NAME="julia-project-template"
+TEMPLATE_REPO_NAME="julia-template"
 # ------------------------------------------------------------------------------
 
 step() { printf '\n==> %s\n' "$*"; }
