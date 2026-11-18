@@ -32,8 +32,9 @@ powershell -ExecutionPolicy Bypass -File setup.ps1
 
 The setup script does these four tasks:
 
-1. It disconnects the clone from the template repository. Thus you cannot
-   accidentally push to the template.
+1. It disconnects the clone from the template repository and removes the commit
+   history of the template. Thus you cannot accidentally push to the template,
+   and your project starts with no commits.
 2. It installs the Julia version that is in `.julia-version`. If juliaup is
    missing, the script installs juliaup for your user account. The script also
    sets the Julia package manager to use the `git` command of the computer. This
@@ -47,7 +48,8 @@ is available.
 
 ## How to make your own repository
 
-After the setup, the folder is a git repository without a remote. Make an empty
+After the setup, the folder is a git repository without a remote and without
+commits. The files of the template are ready for the first commit. Make an empty
 repository on your git server. Then run these commands:
 
 ```bash
@@ -233,11 +235,23 @@ Three parameters control the contents of new projects:
   top of `setup.ps1`: the name of this repository. Make sure that the two values
   are the same and are correct.
 
-The setup script removes `origin` only if these two conditions are true:
+The setup script removes `origin`, the branches, and the tags only if all these
+conditions are true:
 
 - The `origin` URL has the name of the template repository at its end.
 - The project does not have a `Project.toml` file. This is the condition of a
   new clone of the template.
+- The clone has no commits that are not on `origin`.
+- The git setting `template.maintainer` is not `true`.
+
+Your own clone of the template looks the same as a new clone. Thus, before you
+run a setup script in it, run this command once in that clone:
+
+```bash
+git config template.maintainer true
+```
+
+This setting is only in the clone. It is not part of the template.
 
 The template does not contain `Project.toml` or `Manifest.toml`. The first run
 of the setup script in a project makes these files. Thus each new project starts

@@ -42,16 +42,39 @@ $JuliaVersion = "$(Get-Content -Raw .julia-version)".Trim()
 if (-not $JuliaVersion) { throw '.julia-version is empty' }
 
 # 1. Disconnect from the template -----------------------------------------------
-# The script does this step only on the first run in a project.
-# If there is a Project.toml file, the script does not change `origin`.
+# The script does this step only on the first run in a new clone of the
+# template. If there is a Project.toml file, the script does not change git.
+# The step removes `origin`, the branches, and the tags. Thus the project starts
+# with no commits, and the files of the template are ready for the first commit.
+# The script skips this step in these conditions:
+#   - The clone has commits that are not on `origin`.
+#   - git config template.maintainer is true. (Set it in your clone of the
+#     template: git config template.maintainer true)
 $detached = $false
-if (-not (Test-Path Project.toml) -and (Test-Command git)) {
+if (-not (Test-Path Project.toml) -and (Test-Command git) -and
+    "$(git config --bool --get template.maintainer)".Trim() -ne 'true') {
     $originUrl = "$(git config --get remote.origin.url)".Trim().TrimEnd('/') -replace '\.git$', ''
     if ($originUrl -cmatch ('[/:]' + [regex]::Escape($TemplateRepoName) + '$')) {
-        Step 'Disconnecting this clone from the template repository'
-        git remote remove origin
-        if ($LASTEXITCODE -ne 0) { throw 'git could not remove the origin remote.' }
-        $detached = $true
+        $ErrorActionPreference = 'Continue'
+        $unpushed = "$(git rev-list --count HEAD --not --remotes=origin 2>$null)".Trim()
+        $branch = "$(git symbolic-ref --quiet --short HEAD 2>$null)".Trim()
+        $ErrorActionPreference = 'Stop'
+        if ($unpushed -and $unpushed -ne '0') {
+            Step 'Not disconnecting from the template: this clone has commits that are not on origin'
+        } else {
+            Step 'Disconnecting this clone from the template repository and its history'
+            if (-not $branch) { $branch = 'main' }
+            git remote remove origin
+            if ($LASTEXITCODE -ne 0) { throw 'git could not remove the origin remote.' }
+            foreach ($ref in @(git for-each-ref --format='%(refname)' refs/heads refs/tags)) {
+                git update-ref -d $ref
+                if ($LASTEXITCODE -ne 0) { throw "git could not remove $ref." }
+            }
+            # HEAD now points at a branch with no commits. The index keeps the files.
+            git symbolic-ref HEAD "refs/heads/$branch"
+            if ($LASTEXITCODE -ne 0) { throw 'git could not reset the branch.' }
+            $detached = $true
+        }
     }
 }
 
@@ -131,8 +154,8 @@ if ($freshJuliaup) {
     Write-Host "Julia was just installed. If a new terminal cannot find 'julia', sign out and in again."
 }
 if ($detached) {
-    Write-Host 'This clone no longer points at the template. To publish it as your own project,'
-    Write-Host 'create an empty repository and run:'
+    Write-Host 'This folder is now a git repository with no remote and no commits. To publish it'
+    Write-Host 'as your own project, create an empty repository and run:'
     Write-Host '    git add -A'
     Write-Host '    git commit -m "Set up project"'
     Write-Host '    git remote add origin <your-repository-url>'

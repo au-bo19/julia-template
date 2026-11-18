@@ -34,17 +34,35 @@ JULIA_VERSION="$(tr -d '[:space:]' < .julia-version)"
 [ -n "$JULIA_VERSION" ] || fail ".julia-version is empty"
 
 # 1. Disconnect from the template -----------------------------------------------
-# The script does this step only on the first run in a project.
-# If there is a Project.toml file, the script does not change `origin`.
+# The script does this step only on the first run in a new clone of the
+# template. If there is a Project.toml file, the script does not change git.
+# The step removes `origin`, the branches, and the tags. Thus the project starts
+# with no commits, and the files of the template are ready for the first commit.
+# The script skips this step in these conditions:
+#   - The clone has commits that are not on `origin`.
+#   - git config template.maintainer is true. (Set it in your clone of the
+#     template: git config template.maintainer true)
 detached=no
-if [ ! -f Project.toml ] && origin_url="$(git remote get-url origin 2>/dev/null)"; then
+if [ ! -f Project.toml ] \
+  && [ "$(git config --bool --get template.maintainer 2>/dev/null || true)" != true ] \
+  && origin_url="$(git remote get-url origin 2>/dev/null)"; then
   origin_url="${origin_url%/}"
   origin_url="${origin_url%.git}"
   case "$origin_url" in
     */"$TEMPLATE_REPO_NAME" | *:"$TEMPLATE_REPO_NAME")
-      step "Disconnecting this clone from the template repository"
-      git remote remove origin
-      detached=yes
+      if [ "$(git rev-list --count HEAD --not --remotes=origin 2>/dev/null || echo 0)" != 0 ]; then
+        step "Not disconnecting from the template: this clone has commits that are not on origin"
+      else
+        step "Disconnecting this clone from the template repository and its history"
+        branch="$(git symbolic-ref --quiet --short HEAD || echo main)"
+        git remote remove origin
+        for ref in $(git for-each-ref --format='%(refname)' refs/heads refs/tags); do
+          git update-ref -d "$ref"
+        done
+        # HEAD now points at a branch with no commits. The index keeps the files.
+        git symbolic-ref HEAD "refs/heads/$branch"
+        detached=yes
+      fi
       ;;
   esac
 fi
@@ -107,8 +125,8 @@ if [ "$fresh_juliaup" = yes ]; then
   echo "    export PATH=\"\$HOME/.juliaup/bin:\$PATH\""
 fi
 if [ "$detached" = yes ]; then
-  echo "This clone no longer points at the template. To publish it as your own project,"
-  echo "create an empty repository and run:"
+  echo "This folder is now a git repository with no remote and no commits. To publish it"
+  echo "as your own project, create an empty repository and run:"
   echo "    git add -A && git commit -m \"Set up project\""
   echo "    git remote add origin <your-repository-url>"
   echo "    git push -u origin HEAD"
