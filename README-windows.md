@@ -32,17 +32,28 @@ The setup script does these four tasks:
    history of the template.
 2. It installs the Julia version that is in `.julia-version`. If juliaup is
    missing, the script installs Julia and juliaup from the Microsoft Store with
-   `winget`. The script also sets the Julia package manager to use the `git`
-   command of the computer. This is necessary for some packages that you add
-   from a git URL.
+   `winget`. The script also installs the `release` channel of juliaup, which
+   the language server of VS Code uses. It sets the Julia package manager to
+   use the `git` command of the computer. This is necessary for some packages
+   that you add from a git URL.
 3. It installs the Julia extension for VS Code.
 4. It runs `setup.jl`. This file makes the project environment and precompiles
    the packages. The packages are Arrow, BenchmarkTools, Chain, DataFrames,
-   Dates, and DBInterface.
+   Dates, and DBInterface. `setup.jl` also prepares VS Code (see
+   [How to run code in VS Code](#how-to-run-code-in-vs-code)):
+   - It writes the Julia version of `.julia-version` into
+     `.vscode/settings.json`.
+   - It installs Revise in the default environment of that Julia version.
+     The Julia REPL of VS Code loads Revise.
+   - It makes the `julia>` prompt show the active environment, for example
+     `(my-project) julia>`.
 
-If the script installed Julia, open a new terminal. Then the `julia` command is
-available. If a new terminal cannot find `julia`, sign out of Windows and sign
-in again.
+**After the script, open a new terminal.** If VS Code is open, close it and
+open it again (or run **Developer: Reload Window**). Then VS Code and the
+terminal use the new settings.
+
+If the script installed Julia and a new terminal cannot find `julia`, sign out
+of Windows and sign in again.
 
 ## How to make your own repository
 
@@ -97,13 +108,51 @@ julia --project=.                 # interactive session
 julia --project=. my_script.jl    # run a script
 ```
 
-In VS Code, open the project folder. The Julia extension finds the project
-automatically. The status bar shows `Julia env: my-project`.
+In the terminals of VS Code, `julia` without `--project=.` also uses the
+project. `.vscode/settings.json` sets `JULIA_PROJECT=@.` for these terminals.
+
+The `julia>` prompt shows the active environment, the same as the `pkg>`
+prompt:
+
+| Prompt | Environment |
+| --- | --- |
+| `(my-project) julia>` | The environment of the project. The packages of the project are available. |
+| `(@v1.13) julia>` | The default environment of the computer. The packages of the project are not available. |
 
 If you do not use `--project=.`, Julia uses the default environment on the
 computer. This environment is in `%USERPROFILE%\.julia\environments`. The
 project does not record the packages that you add there. Thus these packages are
 not available on a new computer or to other persons.
+
+## How to run code in VS Code
+
+Open the project folder in VS Code (**File > Open Folder**). Open the folder of
+the project, not a folder above it. Then open a `.jl` file and use these keys:
+
+| Key | Action |
+| --- | --- |
+| Shift+Enter | Run the current line or block, and go to the next block |
+| Ctrl+Enter | Run the current line or block |
+| Alt+Enter | Run the current cell (cells are separated by `##` lines) |
+
+To run part of a line or a group of lines, select the code first. To run the
+full file, use the command **Julia: Execute File in REPL**.
+
+The first key starts the Julia REPL of VS Code. This REPL always uses the
+project environment and the Julia version of the project.
+`.vscode/settings.json` sets these values. Thus the packages of the project
+are available immediately. To see the environment, look at the status bar
+(`Julia env: my-project`) or at the REPL prompt (`(my-project) julia>`).
+
+After you run code, the **Workspace** pane of the Julia extension shows the
+variables. The plots open in the plot pane.
+
+If the REPL shows `(@v1.13) julia>` or says that a package of the project is
+not installed, do these steps:
+
+1. Make sure that you opened the project folder, not a folder above it.
+2. Run **Developer: Reload Window**. VS Code reads `.vscode/settings.json` again.
+3. If the problem continues, run `setup.ps1` again.
 
 ## Package management
 
@@ -202,12 +251,29 @@ After you change to a different series (for example, from 1.12 to 1.13), run
 `up` in package mode. This command makes `Manifest.toml` again for the new
 version. Then commit the result.
 
-In the project folder, the `julia` command starts the version that is in
-`.julia-version`. In other folders, it starts the default version of juliaup. To
-see the default version, run `juliaup status`.
+The setup script also writes the new version into `.vscode/settings.json`.
+Commit `.julia-version` and `.vscode/settings.json` together.
 
-If VS Code starts an incorrect version, run `juliaup default <version>`. This
-command sets the default version.
+In the project folder, the `julia` command starts the version that is in
+`.julia-version`. The REPL of VS Code also uses this version. In other folders,
+the `julia` command starts the default version of juliaup. To see the default
+version, run `juliaup status`.
+
+The language server of VS Code always uses the `release` channel of juliaup.
+This does not change the version of your code.
+
+## What the setup script changes outside the project
+
+The setup script changes these files and folders in your home folder. These
+changes apply to all Julia sessions on the computer:
+
+- `.julia/config/startup.jl`: two lines. One line makes the package manager use
+  the `git` command of the computer. The other line loads
+  `.julia/config/project_prompt.jl`, which shows the active environment in the
+  `julia>` prompt. To remove a feature, delete its line.
+- The default environment of the Julia version (for example `@v1.13`): the
+  script adds Revise.
+- juliaup: the Julia version of the project and the `release` channel.
 
 ## For template maintainers
 
@@ -219,10 +285,13 @@ The template contains these setup files:
 | `setup.ps1` | The setup script for Windows |
 | `setup.jl` | The package steps. The two setup scripts run this file. |
 | `.julia-version` | The Julia version |
+| `.vscode/settings.json` | The VS Code settings: the project environment and the Julia version for the REPL. `setup.jl` changes `julia.executablePath`. |
 
 Three parameters control the contents of new projects:
 
-- `.julia-version`: the Julia version.
+- `.julia-version`: the Julia version. Do not change `julia.executablePath` in
+  `.vscode/settings.json` manually. `setup.jl` copies the value from
+  `.julia-version`.
 - `DEFAULT_PACKAGES` at the top of `setup.jl`: the initial packages. Each entry
   is a registry name or the git URL of a package that is not in the registry.
 - `$TemplateRepoName` at the top of `setup.ps1` and `TEMPLATE_REPO_NAME` at the

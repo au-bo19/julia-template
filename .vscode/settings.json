@@ -1,0 +1,13 @@
+{
+  // The Julia REPL of VS Code (Ctrl+Enter, Shift+Enter, Alt+Enter) and the
+  // language server use the environment of this project folder.
+  "julia.environmentPath": "${workspaceFolder}",
+  // The Julia version of the project. The setup script changes this value to
+  // the value in .julia-version. Do not change it here.
+  "julia.executablePath": "julia +1.13.4",
+  // In the VS Code terminals of this folder, the `julia` command starts with
+  // the environment of this project (the same as `julia --project=.`).
+  "terminal.integrated.env.windows": { "JULIA_PROJECT": "@." },
+  "terminal.integrated.env.linux": { "JULIA_PROJECT": "@." },
+  "terminal.integrated.env.osx": { "JULIA_PROJECT": "@." }
+}

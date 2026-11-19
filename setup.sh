@@ -6,14 +6,17 @@
 # The script does these tasks:
 #   1. It disconnects a new clone from the template repository. It deletes
 #      the .git folder, so the folder is no longer a git repository.
-#   2. It installs juliaup (if juliaup is missing) and the Julia version in
-#      .julia-version. It also sets the Julia package manager to use the `git`
-#      command of the computer. This is necessary for some git URLs.
+#   2. It installs juliaup (if juliaup is missing), the Julia version in
+#      .julia-version, and the `release` channel of juliaup. The language
+#      server of VS Code uses the `release` channel. The script also sets the
+#      Julia package manager to use the `git` command of the computer. This is
+#      necessary for some git URLs.
 #   3. It installs the Julia extension for VS Code (if the `code` command is
 #      available).
 #   4. It runs setup.jl. On the first run, setup.jl makes the project
 #      environment. On subsequent runs, setup.jl installs the packages that the
-#      project records.
+#      project records. setup.jl also prepares the Julia REPL of VS Code (the
+#      Julia version, Revise, and the environment name in the julia> prompt).
 #
 # The template and all projects from the template use this same script.
 # On a new computer, clone your project and run the script again.
@@ -77,6 +80,13 @@ fi
 julia "+$JULIA_VERSION" --version \
   || fail "Julia $JULIA_VERSION is not available. Check the value in .julia-version."
 
+# The language server of the VS Code extension always uses the `release`
+# channel. Without this channel, VS Code shows a prompt to install it.
+if ! juliaup status 2>/dev/null | grep -qw release; then
+  step "Installing the juliaup release channel for the VS Code language server"
+  juliaup add release || echo "Could not add the release channel. VS Code will offer to install it."
+fi
+
 # In this folder, make the `julia` command start this version.
 juliaup override unset >/dev/null 2>&1 || true
 juliaup override set "$JULIA_VERSION"
@@ -114,10 +124,6 @@ julia "+$JULIA_VERSION" setup.jl
 # Summary -----------------------------------------------------------------------
 step "Done"
 echo "Start Julia with this project's packages:   julia --project=."
-if [ "$fresh_juliaup" = yes ]; then
-  echo "juliaup was just installed. Open a new terminal before using 'julia', or run:"
-  echo "    export PATH=\"\$HOME/.juliaup/bin:\$PATH\""
-fi
 if [ "$detached" = yes ]; then
   echo "This folder is no longer a git repository. To publish it as your own project,"
   echo "create an empty repository and run:"
@@ -125,4 +131,11 @@ if [ "$detached" = yes ]; then
   echo "    git add -A && git commit -m \"Set up project\""
   echo "    git remote add origin <your-repository-url>"
   echo "    git push -u origin HEAD"
+fi
+echo
+echo "IMPORTANT: Open a new terminal before you use 'julia'. If VS Code is open,"
+echo "close it and open it again (or run 'Developer: Reload Window')."
+if [ "$fresh_juliaup" = yes ]; then
+  echo "juliaup was just installed. In this terminal, you can also run:"
+  echo "    export PATH=\"\$HOME/.juliaup/bin:\$PATH\""
 fi
