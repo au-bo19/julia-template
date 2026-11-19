@@ -18,17 +18,72 @@ default environment instead.
 ### 1. Create the environment and add packages
 
 Start the REPL with <kbd>Alt</kbd>+<kbd>J</kbd> then <kbd>Alt</kbd>+<kbd>O</kbd>,
-or run **Julia: Start REPL** from the Command Palette. Press <kbd>]</kbd> to
-switch to package mode. The prompt changes to `pkg>`:
+or run **Julia: Start REPL** from the Command Palette.
+
+`activate .` uses the REPL's *current folder*, which is not always the folder
+that is open in VS Code (it is often your home folder). So first check where
+the REPL is, and move to the project folder if needed:
+
+```julia-repl
+julia> pwd()
+"/home/you"
+
+julia> cd("/home/you/julia-project")
+```
+
+Then press <kbd>]</kbd> to switch to package mode. The prompt changes to
+`pkg>`:
 
 ```julia-repl
 pkg> activate .
 pkg> add DataFrames CSV Plots
 ```
 
-This creates `Project.toml` and `Manifest.toml` in the folder. From then on,
+Before you `add` anything, the `activate` line should print the project folder,
+for example ``Activating new project at `~/julia-project` ``. If it shows
+another folder, go back and fix it with `cd`.
+
+> [!WARNING]
+> If you already ran this in the wrong folder, delete the `Project.toml` and
+> `Manifest.toml` that it made there (for example `~/Project.toml` and
+> `~/Manifest.toml`). A stray `Project.toml` in your home folder is picked up
+> by `julia --project=@.` in every folder below it that has no
+> `Project.toml` of its own.
+
+This creates `Project.toml` and `Manifest.toml` in the project folder. From then on,
 the extension uses this environment every time you open the folder. The status
 bar at the bottom shows `Julia env: julia-project`.
+
+#### Packages that are only on GitHub
+
+`add DataFrames` works because DataFrames is in Julia's General registry. A
+package that is only on GitHub is added by its URL instead (replace
+`someuser/SomePackage.jl` with the real repository):
+
+```julia-repl
+pkg> add https://github.com/someuser/SomePackage.jl
+```
+
+After that, `using SomePackage` works as usual. Some variants:
+
+| To add                                  | Command                                                     |
+| --------------------------------------- | ----------------------------------------------------------- |
+| A branch, tag, or commit                | `add https://github.com/someuser/SomePackage.jl#main`       |
+| A package in a subfolder of the repo    | `add https://github.com/someuser/Monorepo.jl:path/to/pkg`   |
+| A private repository (with an SSH key)  | `add git@github.com:someuser/SomePackage.jl.git`            |
+
+`Manifest.toml` records the URL and the exact commit, so `instantiate` on
+another computer installs the same code. `up` moves a URL package to the newest
+commit only if it tracks a branch. A package added at a tag or commit stays
+there.
+
+For private repositories, Julia's built-in git often doesn't pick up your SSH
+keys or saved logins and asks for credentials. To make it use the system `git` command
+instead, run this before `add`:
+
+```julia-repl
+julia> ENV["JULIA_PKG_USE_CLI_GIT"] = "true"
+```
 
 Other package commands, all typed at the `pkg>` prompt:
 
