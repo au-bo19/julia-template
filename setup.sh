@@ -1,151 +1,103 @@
 #!/usr/bin/env bash
-# This script prepares this project on a Linux or macOS computer.
-# sudo is not necessary.
+# Install Julia and the Julia VS Code extension on a Linux machine.
+# No sudo is needed: everything goes into your home directory.
+#
+# Usage:
+#   ./setup.sh            # installs Julia $JULIA_VERSION (set below)
+#   ./setup.sh 1.11       # installs Julia 1.11 instead (any juliaup channel works)
+#
+# What it does:
+#   1. Installs juliaup into ~/.juliaup (if missing) and adds it to PATH in your
+#      shell startup files. juliaup then installs Julia into ~/.julia/juliaup.
+#   2. Installs the requested Julia version and makes it the default. The
+#      `release` channel is always installed too, because the language server
+#      of the VS Code extension uses it.
+#   3. Installs the Julia VS Code extension (julialang.language-julia) with the
+#      `code` command, or with the VS Code Remote-SSH server on this machine.
+#
 # You can run the script again at any time.
-#
-# The script does these tasks:
-#   1. It disconnects a new clone from the template repository. It deletes
-#      the .git folder, so the folder is no longer a git repository.
-#   2. It installs juliaup (if juliaup is missing), the Julia version in
-#      .julia-version, and the `release` channel of juliaup. The language
-#      server of VS Code uses the `release` channel. The script also sets the
-#      Julia package manager to use the `git` command of the computer. This is
-#      necessary for some git URLs.
-#   3. It runs setup.jl. On the first run, setup.jl makes the project
-#      environment. On subsequent runs, setup.jl installs the packages that the
-#      project records. setup.jl also prepares the Julia REPL of VS Code (the
-#      Julia version, Revise, the environment name in the julia> prompt, and
-#      the keys that run code).
-#   4. It installs two VS Code extensions (if the `code` command is
-#      available): the Julia extension and the Julia Project Runner. The Julia
-#      Project Runner makes Ctrl+Enter and Shift+Enter run code in a REPL that
-#      belongs to the project of the file.
-#
-# The template and all projects from the template use this same script.
-# On a new computer, clone your project and run the script again.
 set -euo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")"
 
-# ---- Parameter for template maintainers --------------------------------------
-# The name of the template repository. If the `origin` URL of a clone has this
-# name at its end, the script removes `origin`. Thus a new project cannot push
-# to the template. Use the same value in setup.ps1.
-TEMPLATE_REPO_NAME="julia-template"
-# ------------------------------------------------------------------------------
+# The Julia version to install. A command-line argument overrides it.
+JULIA_VERSION="1.13.4"
+
+CHANNEL="${1:-$JULIA_VERSION}"
+EXTENSION="julialang.language-julia"
 
 step() { printf '\n==> %s\n' "$*"; }
 fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
-[ -f .julia-version ] || fail ".julia-version is missing"
-JULIA_VERSION="$(tr -d '[:space:]' < .julia-version)"
-[ -n "$JULIA_VERSION" ] || fail ".julia-version is empty"
+[ "$(uname -s)" = Linux ] || fail "this script is for Linux (found $(uname -s))"
 
-# 1. Disconnect from the template -----------------------------------------------
-# The script does this step only on the first run in a new clone of the
-# template. If there is a Project.toml file, the script does not change git.
-# The step deletes the .git folder. Thus the folder is no longer a git
-# repository: it has no remote, no branches, and no history of the template.
-# The script skips this step in these conditions:
-#   - The clone has commits that are not on `origin`.
-#   - git config template.maintainer is true. (Set it in your clone of the
-#     template: git config template.maintainer true)
-detached=no
-if [ ! -f Project.toml ] && [ -d .git ]   && [ "$(git config --bool --get template.maintainer 2>/dev/null || true)" != true ]   && origin_url="$(git remote get-url origin 2>/dev/null)"; then
-  origin_url="${origin_url%/}"
-  origin_url="${origin_url%.git}"
-  case "$origin_url" in
-    */"$TEMPLATE_REPO_NAME" | *:"$TEMPLATE_REPO_NAME")
-      if [ "$(git rev-list --count HEAD --not --remotes=origin 2>/dev/null || echo 0)" != 0 ]; then
-        step "Not disconnecting from the template: this clone has commits that are not on origin"
-      else
-        step "Disconnecting this clone from the template repository (deleting .git)"
-        rm -rf .git
-        [ ! -e .git ] || fail "could not delete the .git folder"
-        detached=yes
-      fi
-      ;;
-  esac
-fi
-
-# 2. Julia ----------------------------------------------------------------------
+# 1. juliaup ----------------------------------------------------------------------
 export PATH="$HOME/.juliaup/bin:$PATH"
 fresh_juliaup=no
 if command -v juliaup >/dev/null 2>&1; then
-  step "juliaup found; making sure Julia $JULIA_VERSION is installed"
-  # `juliaup add` can show an error if the version is on the computer. Ignore
-  # this error. The subsequent check stops the script if the version is missing.
-  juliaup add "$JULIA_VERSION" || true
+  step "juliaup is already installed ($(command -v juliaup))"
 else
-  step "Installing juliaup and Julia $JULIA_VERSION"
-  curl -fsSL https://install.julialang.org | sh -s -- --yes --default-channel "$JULIA_VERSION"
+  step "Installing juliaup and Julia ($CHANNEL) into your home directory"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL https://install.julialang.org | sh -s -- --yes --default-channel "$CHANNEL"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- https://install.julialang.org | sh -s -- --yes --default-channel "$CHANNEL"
+  else
+    fail "curl or wget is required to download juliaup"
+  fi
+  command -v juliaup >/dev/null 2>&1 || fail "juliaup was not installed in ~/.juliaup/bin"
   fresh_juliaup=yes
 fi
-julia "+$JULIA_VERSION" --version \
-  || fail "Julia $JULIA_VERSION is not available. Check the value in .julia-version."
 
-# The language server of the VS Code extension always uses the `release`
-# channel. Without this channel, VS Code shows a prompt to install it.
-if ! juliaup status 2>/dev/null | grep -qw release; then
-  step "Installing the juliaup release channel for the VS Code language server"
+# 2. Julia ------------------------------------------------------------------------
+has_channel() { juliaup status 2>/dev/null | grep -qw -- "$1"; }
+
+if ! has_channel "$CHANNEL"; then
+  step "Installing Julia channel $CHANNEL"
+  juliaup add "$CHANNEL" || fail "could not install Julia channel '$CHANNEL'"
+fi
+juliaup default "$CHANNEL"
+
+if ! has_channel release; then
+  step "Installing the release channel (used by the VS Code language server)"
   juliaup add release || echo "Could not add the release channel. VS Code will offer to install it."
 fi
 
-# In this folder, make the `julia` command start this version.
-juliaup override unset >/dev/null 2>&1 || true
-juliaup override set "$JULIA_VERSION"
+julia --version || fail "Julia does not start"
 
-# Make the Julia package manager use the `git` command of the computer for git
-# URLs. The git library in Julia does not read the git configuration of the
-# computer. As a result, Julia can show a prompt for credentials. The export
-# applies to this script. The line in startup.jl applies to all subsequent
-# Julia sessions on this computer (terminal, scripts, and VS Code).
-if command -v git >/dev/null 2>&1; then
-  export JULIA_PKG_USE_CLI_GIT=true
-  startup_file="$HOME/.julia/config/startup.jl"
-  if ! grep -qs JULIA_PKG_USE_CLI_GIT "$startup_file"; then
-    mkdir -p "$(dirname "$startup_file")"
-    printf '\n%s\n' 'haskey(ENV, "JULIA_PKG_USE_CLI_GIT") || (ENV["JULIA_PKG_USE_CLI_GIT"] = "true")  # The setup script added this line. Pkg uses the git command of the computer.' \
-      >> "$startup_file"
+# 3. VS Code extension ------------------------------------------------------------
+# Prefer the `code` command (a VS Code terminal, or VS Code installed locally).
+# Otherwise use the newest VS Code Remote-SSH server in ~/.vscode-server, which
+# exists once you have connected to this machine with VS Code at least once.
+find_vscode_cli() {
+  if command -v code >/dev/null 2>&1; then
+    command -v code
+    return
   fi
-fi
+  local servers
+  servers=$(ls -1t \
+    "$HOME"/.vscode-server/cli/servers/*/server/bin/code-server \
+    "$HOME"/.vscode-server/bin/*/bin/code-server 2>/dev/null || true)
+  printf '%s\n' "$servers" | head -n 1
+}
 
-# 3. Project packages and VS Code preparation -----------------------------------
-# setup.jl contains the package list and the package steps. Windows uses the
-# same file. setup.jl also builds .vscode/julia-project-runner.vsix.
-julia "+$JULIA_VERSION" setup.jl
-
-# 4. VS Code extensions ---------------------------------------------------------
-runner_vsix=".vscode/julia-project-runner.vsix"
-step "VS Code extensions: Julia and Julia Project Runner"
-if command -v code >/dev/null 2>&1; then
-  code --install-extension julialang.language-julia \
-    || echo "Could not install the Julia extension from here. VS Code will offer it when you open this folder."
-  if [ -f "$runner_vsix" ]; then
-    code --install-extension "$runner_vsix" --force \
-      || echo "Could not install the Julia Project Runner. Ctrl+Enter uses the keys of the Julia extension."
-  fi
+step "Installing the Julia VS Code extension"
+vscode_cli="$(find_vscode_cli)"
+if [ -n "$vscode_cli" ]; then
+  "$vscode_cli" --install-extension "$EXTENSION" --force \
+    || echo "Could not install the extension. Install '$EXTENSION' from the Extensions view of VS Code."
 else
-  echo "The 'code' command is not available in this terminal, so this was skipped."
-  echo "Without the Julia Project Runner, Ctrl+Enter uses the keys of the Julia extension."
-  echo "To install it, run this script again in a terminal of VS Code."
+  echo "VS Code was not found on this machine, so this step was skipped."
+  echo "Connect to this machine with VS Code (Remote-SSH) and run this script again"
+  echo "in a VS Code terminal, or install '$EXTENSION' from the Extensions view."
 fi
-rm -f "$runner_vsix"
 
-# Summary -----------------------------------------------------------------------
+# Summary -------------------------------------------------------------------------
 step "Done"
-echo "Start Julia with this project's packages:   julia --project=."
-if [ "$detached" = yes ]; then
-  echo "This folder is no longer a git repository. To publish it as your own project,"
-  echo "create an empty repository and run:"
-  echo "    git init -b main"
-  echo "    git add -A && git commit -m \"Set up project\""
-  echo "    git remote add origin <your-repository-url>"
-  echo "    git push -u origin HEAD"
-fi
+juliaup status
 echo
-echo "IMPORTANT: Open a new terminal before you use 'julia'. If VS Code is open,"
-echo "close it and open it again (or run 'Developer: Reload Window')."
 if [ "$fresh_juliaup" = yes ]; then
-  echo "juliaup was just installed. In this terminal, you can also run:"
+  echo "juliaup added itself to PATH in your shell startup files. Open a new terminal,"
+  echo "or run this in the current one:"
   echo "    export PATH=\"\$HOME/.juliaup/bin:\$PATH\""
 fi
+echo "If VS Code is connected to this machine, reload the window"
+echo "(Developer: Reload Window) so the extension finds Julia."
