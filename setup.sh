@@ -101,3 +101,11 @@ if [ "$fresh_juliaup" = yes ]; then
 fi
 echo "If VS Code is connected to this machine, reload the window"
 echo "(Developer: Reload Window) so the extension finds Julia."
+
+# Julia is installed in the home directory, so the folder with this script is
+# no longer needed. There is no folder when the script comes from a pipe.
+if [ -f "${BASH_SOURCE[0]:-}" ]; then
+  echo
+  echo "Julia does not need this folder. You can delete it now:"
+  echo "    rm -rf \"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)\""
+fi
