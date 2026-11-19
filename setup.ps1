@@ -12,12 +12,15 @@
 #      server of VS Code uses the `release` channel. The script also sets the
 #      Julia package manager to use the `git` command of the computer. This is
 #      necessary for some git URLs.
-#   3. It installs the Julia extension for VS Code (if the `code` command is
-#      available).
-#   4. It runs setup.jl. On the first run, setup.jl makes the project
+#   3. It runs setup.jl. On the first run, setup.jl makes the project
 #      environment. On subsequent runs, setup.jl installs the packages that the
 #      project records. setup.jl also prepares the Julia REPL of VS Code (the
-#      Julia version, Revise, and the environment name in the julia> prompt).
+#      Julia version, Revise, the environment name in the julia> prompt, and
+#      the keys that run code).
+#   4. It installs two VS Code extensions (if the `code` command is
+#      available): the Julia extension and the Julia Project Runner. The Julia
+#      Project Runner makes Ctrl+Enter and Shift+Enter run code in a REPL that
+#      belongs to the project of the file.
 #
 # The template and all projects from the template use this same script.
 # On a new computer, clone your project and run the script again.
@@ -135,23 +138,32 @@ if (Test-Command git) {
     }
 }
 
-# 3. VS Code extension ----------------------------------------------------------
-Step 'Julia extension for VS Code'
+# 3. Project packages and VS Code preparation -----------------------------------
+# setup.jl contains the package list and the package steps. Linux and macOS use
+# the same file. setup.jl also builds .vscode\julia-project-runner.vsix.
+julia "+$JuliaVersion" setup.jl
+if ($LASTEXITCODE -ne 0) { throw 'The package step did not complete. See the messages above.' }
+
+# 4. VS Code extensions ---------------------------------------------------------
+$runnerVsix = Join-Path $PSScriptRoot '.vscode\julia-project-runner.vsix'
+Step 'VS Code extensions: Julia and Julia Project Runner'
 if (Test-Command code) {
     code --install-extension julialang.language-julia
     if ($LASTEXITCODE -ne 0) {
-        Write-Host 'Could not install it from here. VS Code will offer it when you open this folder.'
+        Write-Host 'Could not install the Julia extension from here. VS Code will offer it when you open this folder.'
+    }
+    if (Test-Path $runnerVsix) {
+        code --install-extension $runnerVsix --force
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host 'Could not install the Julia Project Runner. Ctrl+Enter uses the keys of the Julia extension.'
+        }
     }
 } else {
     Write-Host "The 'code' command is not available in this terminal, so this was skipped."
-    Write-Host 'VS Code will offer the extension when you open this folder (see .vscode/extensions.json).'
+    Write-Host 'Without the Julia Project Runner, Ctrl+Enter uses the keys of the Julia extension.'
+    Write-Host 'To install it, run this script again in a terminal of VS Code.'
 }
-
-# 4. Project packages -----------------------------------------------------------
-# setup.jl contains the package list and the package steps. Linux and macOS use
-# the same file.
-julia "+$JuliaVersion" setup.jl
-if ($LASTEXITCODE -ne 0) { throw 'The package step did not complete. See the messages above.' }
+if (Test-Path $runnerVsix) { Remove-Item -LiteralPath $runnerVsix -Force }
 
 # Summary -----------------------------------------------------------------------
 Step 'Done'

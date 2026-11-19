@@ -36,8 +36,7 @@ The setup script does these four tasks:
    the language server of VS Code uses. It sets the Julia package manager to
    use the `git` command of the computer. This is necessary for some packages
    that you add from a git URL.
-3. It installs the Julia extension for VS Code.
-4. It runs `setup.jl`. This file makes the project environment and precompiles
+3. It runs `setup.jl`. This file makes the project environment and precompiles
    the packages. The packages are Arrow, BenchmarkTools, Chain, DataFrames,
    Dates, and DBInterface. `setup.jl` also prepares VS Code (see
    [How to run code in VS Code](#how-to-run-code-in-vs-code)):
@@ -47,6 +46,12 @@ The setup script does these four tasks:
      The Julia REPL of VS Code loads Revise.
    - It makes the `julia>` prompt show the active environment, for example
      `(my-project) julia>`.
+   - It changes the VS Code keys that run code (Ctrl+Enter, Shift+Enter,
+     Alt+Enter, Alt+Shift+Enter). The keys run the code in a REPL that belongs
+     to the project of the file.
+4. It installs two VS Code extensions: the Julia extension and the Julia
+   Project Runner. The Julia Project Runner is part of this template (see
+   [How to run code in VS Code](#how-to-run-code-in-vs-code)).
 
 **After the script, open a new terminal.** If VS Code is open, close it and
 open it again (or run **Developer: Reload Window**). Then VS Code and the
@@ -126,33 +131,70 @@ not available on a new computer or to other persons.
 
 ## How to run code in VS Code
 
-Open the project folder in VS Code (**File > Open Folder**). Open the folder of
-the project, not a folder above it. Then open a `.jl` file and use these keys:
+Open a folder in VS Code (**File > Open Folder**). This can be the project
+folder or a folder that contains many projects. Open a `.jl` file of a project.
+Then use these keys:
 
 | Key | Action |
 | --- | --- |
 | Shift+Enter | Run the current line or block, and go to the next block |
 | Ctrl+Enter | Run the current line or block |
 | Alt+Enter | Run the current cell (cells are separated by `##` lines) |
+| Alt+Shift+Enter | Run the current cell, and go to the next cell |
 
 To run part of a line or a group of lines, select the code first. To run the
 full file, use the command **Julia: Execute File in REPL**.
 
-The first key starts the Julia REPL of VS Code. This REPL always uses the
-project environment and the Julia version of the project.
-`.vscode/settings.json` sets these values. Thus the packages of the project
-are available immediately. To see the environment, look at the status bar
-(`Julia env: my-project`) or at the REPL prompt (`(my-project) julia>`).
+The first key starts the Julia REPL of VS Code. The keys use the Julia Project
+Runner extension of this template. Before each run, the extension finds the
+project of the file: the nearest folder above the file that has a
+`Project.toml` file. Then it does one of these steps:
+
+- If the REPL belongs to the same project, the code runs in that REPL. The
+  variables of your previous runs stay available. This is the workflow of
+  RStudio: run some lines, look at the result, and run the next lines.
+- If the REPL belongs to a different project, the extension restarts the REPL
+  in the project of the file, with the Julia version in `.julia-version` of
+  that project. VS Code shows a message. Then the code runs in the new REPL.
+  Thus the variables of one project never carry over into a different
+  project.
+
+Thus you can open the project folder, or a folder that contains many
+projects, and switch between the files of different projects. The packages of
+the project are always available.
+
+To see the active environment, look at the status bar (`Julia env: my-project`)
+or at the REPL prompt (`(my-project) julia>`).
 
 After you run code, the **Workspace** pane of the Julia extension shows the
-variables. The plots open in the plot pane.
+variables. The plots open in the plot pane. To start with an empty REPL in the
+same project, run **Julia: Restart REPL**.
 
-If the REPL shows `(@v1.13) julia>` or says that a package of the project is
-not installed, do these steps:
+If you open a folder above the projects, the extension writes
+`julia.executablePath` and `julia.environmentPath` into `.vscode/settings.json`
+of that folder. This file is not part of a project.
 
-1. Make sure that you opened the project folder, not a folder above it.
-2. Run **Developer: Reload Window**. VS Code reads `.vscode/settings.json` again.
-3. If the problem continues, run `setup.ps1` again.
+If the REPL says that a package of the project is not installed, do these steps:
+
+1. Make sure that `Project.toml` records the package. If not, add the package
+   in package mode (see [Package management](#package-management)).
+2. Run `setup.ps1` again. The script installs the packages that the project
+   records.
+3. Run **Julia: Restart REPL**.
+
+If a key does not restart the REPL when you change to a different project, do
+these steps:
+
+1. Open the Extensions view and make sure that **Julia Project Runner** is
+   installed. If not, run `setup.ps1` again in a terminal of VS Code. The script
+   uses the `code` command to install the extension.
+2. Run **Preferences: Open Keyboard Shortcuts (JSON)**. Make sure that the file
+   contains the lines between the two `julia-template` comments.
+
+If you use a VS Code profile, run `setup.ps1` again or copy these lines into
+the `keybindings.json` file of the profile. With a remote connection (SSH, WSL,
+or a container), install the Julia Project Runner in the remote window, and
+copy the lines into the `keybindings.json` file of your local computer.
 
 ## Package management
 
@@ -274,6 +316,13 @@ changes apply to all Julia sessions on the computer:
 - The default environment of the Julia version (for example `@v1.13`): the
   script adds Revise.
 - juliaup: the Julia version of the project and the `release` channel.
+- VS Code `keybindings.json` of your user: four keys (Ctrl+Enter, Shift+Enter,
+  Alt+Enter, Alt+Shift+Enter) between two `julia-template` comments. To remove
+  them, delete these lines. Then the keys of the Julia extension apply again.
+- VS Code extensions: the Julia extension and the Julia Project Runner. Each
+  run of the setup script installs the Julia Project Runner of the project
+  again. If two projects have different versions of the extension, the last
+  run applies.
 
 ## For template maintainers
 
@@ -285,7 +334,8 @@ The template contains these setup files:
 | `setup.ps1` | The setup script for Windows |
 | `setup.jl` | The package steps. The two setup scripts run this file. |
 | `.julia-version` | The Julia version |
-| `.vscode/settings.json` | The VS Code settings: the project environment and the Julia version for the REPL. `setup.jl` changes `julia.executablePath`. |
+| `.vscode/settings.json` | The VS Code settings: the Julia version for the REPL and `JULIA_PROJECT` for the terminals. `setup.jl` changes `julia.executablePath`. |
+| `.vscode/julia-project-runner/` | The source of the Julia Project Runner extension (`package.json` and `extension.js`). `setup.jl` builds `.vscode/julia-project-runner.vsix` from it, and the setup script installs and deletes that file. To change the extension, change these files and increase `version` in `package.json`. |
 
 Three parameters control the contents of new projects:
 

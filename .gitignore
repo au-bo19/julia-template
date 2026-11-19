@@ -7,3 +7,6 @@
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
+
+# Built by setup.jl and installed by the setup script
+.vscode/julia-project-runner.vsix
