@@ -1,5 +1,4 @@
 # This script prepares this project on a Windows computer.
-# For Linux and macOS, use setup.sh.
 # You can run the script again at any time.
 #
 # Run the script from the project folder with this command:

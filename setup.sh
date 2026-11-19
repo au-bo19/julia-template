@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # This script prepares this project on a Linux or macOS computer.
-# For Windows, use setup.ps1. sudo is not necessary.
+# sudo is not necessary.
 # You can run the script again at any time.
 #
 # The script does these tasks:
